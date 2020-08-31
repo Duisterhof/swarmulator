@@ -61,7 +61,8 @@ class prob_bart:
         return [f]
 
     def get_bounds(self):
-        return([-20]*num_params,[20]*num_params)
+        bounds = num_params*[[-20.,20.]]
+        return bounds
 
 
 if __name__ == "__main__":

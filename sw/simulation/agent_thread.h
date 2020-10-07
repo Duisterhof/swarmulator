@@ -15,6 +15,8 @@
 #include "terminalinfo.h"
 #include "auxiliary.h"
 #include "main.h"
+#include "omniscient_observer.h"
+#include "math.h"
 #include AGENT_INCLUDE // from makefile
 
 /**
@@ -42,13 +44,25 @@ void run_agent_simulation_step(const int &ID)
       polar2cart(r_temp, ang_temp, vx_temp, vy_temp); // use rangesensor to sense walls
       test[0] += vx_temp;
       test[1] += vy_temp;
-
+      
       std::vector<float> laser_vals = s.at(ID)->laser_ranges;
       int idx = std::distance(laser_vals.begin(),std::min_element(laser_vals.begin(),laser_vals.end()));
-  
+      OmniscientObserver o;
+      std::vector<uint> closest_agent = o.request_closest(ID);
+      float dist_to_agent = 0;
+
+      if (closest_agent.size() == 0)
+      {
+        dist_to_agent = 2*s.at(ID)->swarm_collision_threshold;
+      }
+      else
+      {
+        dist_to_agent = sqrtf(powf((s.at(ID)->state[1]-s.at(closest_agent[0])->state[1]),2)+powf((s.at(ID)->state[0]-s.at(closest_agent[0])->state[0]),2));
+      }
+      
       // if (!environment.sensor(ID, s_0, test, ang_temp)) { // No wall --> Update the dynamics
       // if (true) {
-      if(laser_vals[idx] > s.at(ID)->laser_collision_threshold) {
+      if(laser_vals[idx] > s.at(ID)->laser_collision_threshold && dist_to_agent > s.at(ID)->swarm_collision_threshold) {
         mtx.lock(); //sync
         s.at(ID)->state = s_n;
         mtx.unlock();

@@ -22,7 +22,7 @@ class laser_ray
 		// wall following params
 		float heading_kp = 4.0;
 		float heading_kd = 0.0;
-		float heading_ki = 0.05;
+		float heading_ki = 0.0;
 
 		float heading_error = 0.0;
 		float old_heading_error = 0.0;
@@ -30,9 +30,9 @@ class laser_ray
 		float heading_error_i = 0.0;
 		
 		float heading_accumulator = 0.0; // what is finally added to heading
-		float desired_laser_distance = 2.0; // desired minimal laser distance when following a wall
+		float desired_laser_distance = 2.5; // desired minimal laser distance when following a wall
 		float critical_laser_distance = 0.5; // when this point is reached we should be really really careful
-		float engage_laser_distance = 2.5; // the end of the wall following zone, get more than this clearance to get out
+		float engage_laser_distance = 2.7; // the end of the wall following zone, get more than this clearance to get out
 		float old_accumulator = 0.0; // old accumulator used to limit the change in accumulation
 		
 };
@@ -51,20 +51,23 @@ public:
 	float get_agent_dist(const uint16_t ID1, const uint16_t ID2);
 	float laser_headings[4] = {0,M_PI_2,M_PI,3*M_PI_2};
 	OmniscientObserver o;
+	std::vector<float> prev_x;
+	std::vector<float> prev_y;
 
 	float old_accumulator = 0.0; // old accumulators of rays
 	float diff_accumulator = 0.0; // difference with old accumulator
-	float max_accumulator_increase = 0.1; //max [rad] increase in vector, to avoid unstable behavior
+	float max_accumulator_increase = 0.1 ; //max [rad] increase in vector, to avoid unstable behavior
 
 	float iteration_start_time = 0.0;
 	float local_vx, local_vy;
 	float local_psi = 0.0;
 
+	// AI-determined Parameters
 	// configuration parameters for PSO
-	float rand_p = 1.4;
-	float omega = 0.1;
+	float rand_p = 0.1;
+	float omega = 0.5;
 	float phi_p = 0.5;
-	float phi_g = 3.5;
+	float phi_g = 2.5;
 	float yaw_incr = 0.1;
 	float update_time = 40.0;
 	float dist_reached_goal = 0.5;
@@ -72,7 +75,13 @@ public:
 	bool started_agent_avoid = false;
 	float swarm_rerout_time = 3.0;
 	float started_swarm_avoid_time = 0.0;
-	float swarm_avoidance_thres = 2.0;
+	float swarm_avoidance_thres = 0.8;
+	float swarm_avoidance_release = 1.5;
+	float k_swarm_avoidance = 5.0;	
+	float k_swarm_laser_rep = 5.0;
+	float reset_wall_follow_time = 0.0;
+	float reset_wall_follow_time_thres = 3.0; //[sec]
+
 	// // wall following params
 	// float heading_kp = 3.0;
 	// float heading_kd = 30.0;

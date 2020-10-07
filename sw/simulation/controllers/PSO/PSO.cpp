@@ -20,14 +20,17 @@ void PSO::get_velocity_command(const uint16_t ID, float &v_x, float &v_y)
   s.at(ID)->laser_pnts.clear(); // laser points (where the lasers intersect with the environment)
   agent_pos.x = state[1]; // loading agent pos struct Point
   agent_pos.y = state[0];
-  local_psi = get_heading_to_point(agent_pos,goal);
   laser_rays.clear();
 
-  
+  // used for oscillation detection
+  prev_x.push_back(agent_pos.x);
+  prev_y.push_back(agent_pos.y);
+
 
   local_psi = get_heading_to_point(agent_pos,goal);
   local_vx = cosf(local_psi)*desired_velocity;
   local_vy = sinf(local_psi)*desired_velocity;
+
   // create ray objects
   for (int i = 0; i<4; i++)
 	{
@@ -36,81 +39,26 @@ void PSO::get_velocity_command(const uint16_t ID, float &v_x, float &v_y)
 		laser_rays.push_back(ray);
 	}
 
-  heading_accumulator = 0.0;
   // load laser range values 1 by one and check if they are below threshold (i.e., we need to avoid something)
   bool reset_wall_following = true;
   bool determine_direction = false;
-  float min_laser = 100;
   for (int i = 0; i<4; i++)
   {
     laser_rays[i] = get_laser_reads(laser_rays[i],ID);
-    
-    if ( s.at(ID)->laser_ranges[i] < laser_rays[i].engage_laser_distance)
+  }
+
+  // add repulsion to walls        
+  for( int i = 0; i<4; i++)
+  {
+    if ( s.at(ID)->laser_ranges[i] < desired_laser_distance)
     {
-      reset_wall_following = false;
-
-      heading_accumulator += get_ray_control(laser_rays[i],dt);
-
-      
-      if(s.at(ID)->laser_ranges[i] < laser_rays[i].desired_laser_distance)
-      {
-        if (!wall_following)
-        {
-          determine_direction = true;
-          wall_following = true;
-        }
-      }
+      float laser_heading = laser_headings[i] + s.at(ID)->get_orientation();
+      float heading_away_from_laser = laser_heading - M_PI;
+      local_vx += cosf(heading_away_from_laser)*k_swarm_laser_rep*powf(desired_laser_distance-s.at(ID)->laser_ranges[i],2);
+      local_vy += sinf(heading_away_from_laser)*k_swarm_laser_rep*powf(desired_laser_distance-s.at(ID)->laser_ranges[i],2);
     }
-    
   }
-  diff_accumulator = heading_accumulator - old_accumulator;
-  if (diff_accumulator > max_accumulator_increase)
-  {
-    heading_accumulator = old_accumulator + max_accumulator_increase;
-  }
-  else if (diff_accumulator < - max_accumulator_increase)
-  {
-    heading_accumulator = old_accumulator - max_accumulator_increase;
-  }
-  if (wall_following)
-  {
-    old_accumulator = heading_accumulator;
-  }
-  else
-  {
-    old_accumulator = 0.0;
-  }
-  
-  
 
-
-  terminalinfo::debug_msg(std::to_string(heading_accumulator));
-
-// terminalinfo::debug_msg(std::to_string(get_safe_direction(s.at(ID)->laser_ranges,local_psi,laser_rays[0].desired_laser_distance,s.at(ID)->get_orientation())));
-if (get_safe_direction(s.at(ID)->laser_ranges,local_psi,laser_rays[0].desired_laser_distance,s.at(ID)->get_orientation()))
-{
-  reset_wall_following = true;
-}
-
-if (reset_wall_following)
-{
-  wall_following = false;
-
-  determine_direction = false;
-}
-
-if (determine_direction)
-{
-  if(get_follow_direction(s.at(ID)->laser_ranges,local_psi,s.at(ID)->get_orientation()))
-  {
-    follow_left = true;
-  }
-  else
-  {
-    follow_left = false;
-  }
-  determine_direction = false;
-}
 
   // load gas concentration at current position
   int x_indx = clip((int)((s.at(ID)->state[1]-environment.x_min)/(environment.x_max-environment.x_min)*(float)(environment.gas_obj.numcells[0])),0,environment.gas_obj.numcells[0]);
@@ -129,8 +77,11 @@ if (determine_direction)
       environment.best_gas_pos_y = agent_pos.y;
     }
   }
-
+  std::vector<uint> closest_ids = o.request_closest(ID);
   // new goal is computed every 'update_time' [sec]
+
+
+  
   if ( simtime_seconds-iteration_start_time >= update_time || getDistance(goal,agent_pos) < dist_reached_goal )
   {
     iteration_start_time = simtime_seconds;
@@ -143,61 +94,41 @@ if (determine_direction)
     goal = {.x = agent_pos.x + v_x,.y = agent_pos.y+v_y}; 
 
     s.at(ID)->goal = goal;
-    local_psi = get_heading_to_point(agent_pos,goal);
-    local_vx = cosf(local_psi)*desired_velocity;
-    local_vy = sinf(local_psi)*desired_velocity;
-    wall_following = false;
   }
   else if (simtime_seconds == 0.0)
   {
     // initial velocity for everyone
     goal = {.x = rg.uniform_float(environment.x_min,environment.x_max), .y=rg.uniform_float(environment.y_min,environment.y_max)};
     local_psi = get_heading_to_point(agent_pos,goal);
-    local_vx = cosf(local_psi)*desired_velocity;
-    local_vy = sinf(local_psi)*desired_velocity;
   }
-  // float dist_to_goal = getDistance(goal,agent_pos);   
-  // if (dist_to_goal<dist_reached_goal)
-  // {
-  //   local_vx = 0.0;
-  //   local_vy = 0.0;
 
-  // }
-    
-  else if (wall_following == true)
-  {
-    if (follow_left)
-    {
-      heading_accumulator = -heading_accumulator;
-    }
-    local_psi = get_heading_to_point(agent_pos,goal) + heading_accumulator;
-    local_vx = cosf(local_psi)*desired_velocity;
-    local_vy = sinf(local_psi)*desired_velocity;
-  }
+ 
   
-  std::vector<uint> closest_ids = o.request_closest(ID);
   if ( closest_ids.size() > 0 )
   {
     if (get_agent_dist(ID,closest_ids[0]) < swarm_avoidance_thres)
     {
+      // variable used to add a timeout for swarm avoidance
       if (started_agent_avoid == false)
       {
         started_agent_avoid = true;
         started_swarm_avoid_time = simtime_seconds;
       }
-
-      other_agent_pos.x = s.at(closest_ids[0])->state[1];
-      other_agent_pos.y = s.at(closest_ids[0])->state[0];
-      float heading_to_other_agent = get_heading_to_point(agent_pos,other_agent_pos);
-      float heading_away_from_agent = heading_to_other_agent - M_PI;
-      if (get_safe_direction(s.at(ID)->laser_ranges,heading_away_from_agent,laser_rays[0].desired_laser_distance,s.at(ID)->get_orientation()))
+      // add a force for all agents that are within a range
+      for (uint i =0; i<closest_ids.size(); i++)
       {
-        local_vx += cosf(heading_away_from_agent)*0.5;
-        local_vy += sinf(heading_away_from_agent)*0.5;
-        float vector_size = sqrtf(powf(local_vx,2)+powf(local_vy,2));
-        local_vx = local_vx/vector_size*desired_velocity;
-        local_vy = local_vy/vector_size*desired_velocity;
+        if (get_agent_dist(ID,closest_ids[i]) < swarm_avoidance_thres)
+        {
+          other_agent_pos.x = s.at(closest_ids[i])->state[1];
+          other_agent_pos.y = s.at(closest_ids[i])->state[0];
+          float heading_to_other_agent = get_heading_to_point(agent_pos,other_agent_pos);
+          float heading_away_from_agent = heading_to_other_agent - M_PI;
+          local_vx += cosf(heading_away_from_agent)*k_swarm_avoidance*powf(swarm_avoidance_release-get_agent_dist(ID,closest_ids[i]),2);
+          local_vy += sinf(heading_away_from_agent)*k_swarm_avoidance*powf(swarm_avoidance_release-get_agent_dist(ID,closest_ids[i]),2);
+        }
       }
+      // reroute after certain time
+
       if ((simtime_seconds-started_swarm_avoid_time)> swarm_rerout_time)
       {
         started_swarm_avoid_time = simtime_seconds;
@@ -211,19 +142,19 @@ if (determine_direction)
         goal = {.x = agent_pos.x + v_x,.y = agent_pos.y+v_y}; 
 
         s.at(ID)->goal = goal;
-        local_psi = get_heading_to_point(agent_pos,goal);
-        local_vx = cosf(local_psi)*desired_velocity;
-        local_vy = sinf(local_psi)*desired_velocity;
-        wall_following = false;
       }
+
+
     }
     else
     {
     started_agent_avoid = false;
     }
   }
-
-  
+  // normalize vector to original desired velocity size
+  float vector_size = sqrtf(powf(local_vx,2)+powf(local_vy,2));
+  local_vx = local_vx/vector_size*desired_velocity;
+  local_vy = local_vy/vector_size*desired_velocity;
 
   v_x = local_vx;
   v_y = local_vy;
@@ -276,7 +207,7 @@ float PSO::get_heading_to_point(Point agent, Point goal)
 
 float PSO::get_ray_control(laser_ray ray, float dt)
 {
-  ray.heading_error = ray.desired_laser_distance - ray.range;
+  ray.heading_error = powf((ray.desired_laser_distance - ray.range),2);
   ray.heading_error_d = (ray.heading_error-ray.old_heading_error)/dt;
   ray.heading_error_i = 0.5*(ray.heading_error+ray.old_heading_error)*dt;
 

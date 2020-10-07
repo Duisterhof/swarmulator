@@ -26,10 +26,42 @@ void PSO::get_velocity_command(const uint16_t ID, float &v_x, float &v_y)
   prev_x.push_back(agent_pos.x);
   prev_y.push_back(agent_pos.y);
 
+  if (prev_x.size() > num_prev_position_recording)
+  {
+    prev_x.erase(prev_x.begin());
+    prev_y.erase(prev_y.begin());
+  }
+  
+  x_min = y_min = 1000.0f;
+  y_max = x_max = -1000.0f;
 
-  local_psi = get_heading_to_point(agent_pos,goal);
-  local_vx = cosf(local_psi)*desired_velocity;
-  local_vy = sinf(local_psi)*desired_velocity;
+  for (int i = 0; i< prev_x.size(); i++)
+  {
+    if ( prev_x[i] < x_min)
+    {
+      x_min = prev_x[i];
+    }
+
+    if ( prev_x[i] > x_max)
+    {
+      x_max = prev_x[i];
+    }
+
+    if ( prev_y[i] < y_min)
+    {
+      y_min = prev_y[i];
+    }
+
+    if ( prev_y[i] > y_max)
+    {
+      y_max = prev_y[i];
+    }
+  }
+
+  x_range = std::abs(x_max-x_min);
+  y_range = std::abs(y_max-y_min);
+
+  
 
   // create ray objects
   for (int i = 0; i<4; i++)
@@ -46,6 +78,46 @@ void PSO::get_velocity_command(const uint16_t ID, float &v_x, float &v_y)
   {
     laser_rays[i] = get_laser_reads(laser_rays[i],ID);
   }
+
+  if(get_safe_direction(s.at(ID)->laser_ranges,local_psi,laser_rays[0].desired_laser_distance,s.at(ID)->get_orientation()))
+  {
+    heading_accumulator = 0.0f;
+    wall_following = false;
+  }
+  else
+  {
+    if (headings_d.size()>0)
+    {
+      heading_d_avg = std::accumulate(headings_d.begin(),headings_d.end(),0.0)/headings_d.size();
+    }
+    terminalinfo::debug_msg(std::to_string(heading_d_avg));
+
+    if (((x_range < osscilation_thres && y_range < osscilation_thres) || heading_d_avg > os_head_thres) && (simtime_seconds - last_os_detection) > os_timeout)
+    {
+      if (!wall_following)
+      {
+        wall_following = true;
+        rotate_left = get_follow_direction(s.at(ID)->laser_ranges,get_heading_to_point(agent_pos,goal),s.at(ID)->get_orientation());
+      }
+
+      heading_accumulator += M_PI_2;
+      if (rotate_left)
+      {
+        heading_accumulator = -heading_accumulator;
+      }
+      last_os_detection = simtime_seconds;
+      headings.clear();
+      headings_d.clear();
+      prev_x.clear();
+      prev_y.clear();
+    }
+  }
+  
+
+
+  local_psi = get_heading_to_point(agent_pos,goal) + heading_accumulator;
+  local_vx = cosf(local_psi)*desired_velocity;
+  local_vy = sinf(local_psi)*desired_velocity;
 
   // add repulsion to walls        
   for( int i = 0; i<4; i++)
@@ -155,6 +227,27 @@ void PSO::get_velocity_command(const uint16_t ID, float &v_x, float &v_y)
   float vector_size = sqrtf(powf(local_vx,2)+powf(local_vy,2));
   local_vx = local_vx/vector_size*desired_velocity;
   local_vy = local_vy/vector_size*desired_velocity;
+
+  float curr_heading = atan2(local_vx,local_vy);
+  if (headings.size() > 0)
+  {
+  headings_d.push_back(abs(headings.back()-curr_heading));
+  headings.push_back(curr_heading);
+  }
+  else
+  {
+    headings_d.push_back(0.0f);
+    headings.push_back(curr_heading);
+  }
+
+  if (headings.size() > num_prev_position_recording)
+  {
+    headings_d.erase(headings_d.begin());
+    headings.erase(headings.begin());
+  }
+  
+ 
+
 
   v_x = local_vx;
   v_y = local_vy;

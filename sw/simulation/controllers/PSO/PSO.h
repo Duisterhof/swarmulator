@@ -53,6 +53,8 @@ public:
 	OmniscientObserver o;
 	std::vector<float> prev_x;
 	std::vector<float> prev_y;
+	std::vector<float> headings;
+	std::vector<float> headings_d;
 
 	float old_accumulator = 0.0; // old accumulators of rays
 	float diff_accumulator = 0.0; // difference with old accumulator
@@ -73,6 +75,7 @@ public:
 	float dist_reached_goal = 0.5;
 	bool follow_left = false; 
 	bool started_agent_avoid = false;
+	bool decide_direction = false;
 	float swarm_rerout_time = 3.0;
 	float started_swarm_avoid_time = 0.0;
 	float swarm_avoidance_thres = 0.8;
@@ -80,8 +83,19 @@ public:
 	float k_swarm_avoidance = 5.0;	
 	float k_swarm_laser_rep = 5.0;
 	float reset_wall_follow_time = 0.0;
-	float reset_wall_follow_time_thres = 3.0; //[sec]
+	float reset_wall_follow_time_thres = 1.5; //[sec]
+	int num_prev_position_recording = 50; //
 
+	float x_range = 0.0;
+	float y_range = 0.0;
+	float x_min,x_max,y_min,y_max;
+	float osscilation_thres = 0.3;
+	float last_os_detection = 0.0;
+	float os_timeout = 5;
+
+	float os_head_thres = 0.06;
+	float heading_d_avg = 0.0;
+	bool rotate_left = true;
 	// // wall following params
 	// float heading_kp = 3.0;
 	// float heading_kd = 30.0;
@@ -102,6 +116,7 @@ public:
 	float min_laser = desired_laser_distance; //the minimum found laser distance
 	int min_laser_idx = 0; // the idx (hence direction) of the laser with lowest value
 	float heading_accumulator = 0.0;
+	
 
 
 	bool wall_following = false;

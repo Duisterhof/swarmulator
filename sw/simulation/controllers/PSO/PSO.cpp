@@ -13,7 +13,6 @@
 void PSO::get_velocity_command(const uint16_t ID, float &v_x, float &v_y)
 {
   /*** Put your controller here ***/
-  float dt = s.at(ID)->dt;
   random_generator rg;
   std::vector<float> state = s.at(ID)->state; // load agent state
   s.at(ID)->laser_ranges.clear(); // laser ranges are emptied as they need to be reloaded
@@ -21,47 +20,6 @@ void PSO::get_velocity_command(const uint16_t ID, float &v_x, float &v_y)
   agent_pos.x = state[1]; // loading agent pos struct Point
   agent_pos.y = state[0];
   laser_rays.clear();
-
-  // used for oscillation detection
-  prev_x.push_back(agent_pos.x);
-  prev_y.push_back(agent_pos.y);
-
-  if (prev_x.size() > num_prev_position_recording)
-  {
-    prev_x.erase(prev_x.begin());
-    prev_y.erase(prev_y.begin());
-  }
-  
-  x_min = y_min = 1000.0f;
-  y_max = x_max = -1000.0f;
-
-  for (int i = 0; i< prev_x.size(); i++)
-  {
-    if ( prev_x[i] < x_min)
-    {
-      x_min = prev_x[i];
-    }
-
-    if ( prev_x[i] > x_max)
-    {
-      x_max = prev_x[i];
-    }
-
-    if ( prev_y[i] < y_min)
-    {
-      y_min = prev_y[i];
-    }
-
-    if ( prev_y[i] > y_max)
-    {
-      y_max = prev_y[i];
-    }
-  }
-
-  x_range = std::abs(x_max-x_min);
-  y_range = std::abs(y_max-y_min);
-
-  
 
   // create ray objects
   for (int i = 0; i<4; i++)
@@ -71,51 +29,14 @@ void PSO::get_velocity_command(const uint16_t ID, float &v_x, float &v_y)
 		laser_rays.push_back(ray);
 	}
 
-  // load laser range values 1 by one and check if they are below threshold (i.e., we need to avoid something)
-  bool reset_wall_following = true;
-  bool determine_direction = false;
   for (int i = 0; i<4; i++)
   {
     laser_rays[i] = get_laser_reads(laser_rays[i],ID);
   }
 
-  if(get_safe_direction(s.at(ID)->laser_ranges,local_psi,laser_rays[0].desired_laser_distance,s.at(ID)->get_orientation()))
-  {
-    heading_accumulator = 0.0f;
-    wall_following = false;
-  }
-  else
-  {
-    if (headings_d.size()>0)
-    {
-      heading_d_avg = std::accumulate(headings_d.begin(),headings_d.end(),0.0)/headings_d.size();
-    }
-    terminalinfo::debug_msg(std::to_string(heading_d_avg));
+  local_psi = get_heading_to_point(agent_pos,goal) ;
 
-    if (((x_range < osscilation_thres && y_range < osscilation_thres) || heading_d_avg > os_head_thres) && (simtime_seconds - last_os_detection) > os_timeout)
-    {
-      if (!wall_following)
-      {
-        wall_following = true;
-        rotate_left = get_follow_direction(s.at(ID)->laser_ranges,get_heading_to_point(agent_pos,goal),s.at(ID)->get_orientation());
-      }
-
-      heading_accumulator += M_PI_2;
-      if (rotate_left)
-      {
-        heading_accumulator = -heading_accumulator;
-      }
-      last_os_detection = simtime_seconds;
-      headings.clear();
-      headings_d.clear();
-      prev_x.clear();
-      prev_y.clear();
-    }
-  }
-  
-
-
-  local_psi = get_heading_to_point(agent_pos,goal) + heading_accumulator;
+  // attraction to source
   local_vx = cosf(local_psi)*desired_velocity;
   local_vy = sinf(local_psi)*desired_velocity;
 
@@ -131,51 +52,8 @@ void PSO::get_velocity_command(const uint16_t ID, float &v_x, float &v_y)
     }
   }
 
-
-  // load gas concentration at current position
-  int x_indx = clip((int)((s.at(ID)->state[1]-environment.x_min)/(environment.x_max-environment.x_min)*(float)(environment.gas_obj.numcells[0])),0,environment.gas_obj.numcells[0]);
-  int y_indx = clip((int)((s.at(ID)->state[0]-environment.y_min)/(environment.y_max-environment.y_min)*(float)(environment.gas_obj.numcells[1])),0,environment.gas_obj.numcells[1]);
-  float gas_conc = (float)(environment.gas_obj.gas_data[(int)(floor(simtime_seconds))][x_indx][y_indx]);
-
-  // update best found agent position and best found swarm position if required
-  if( gas_conc>s.at(ID)->best_agent_gas)
-  {
-    s.at(ID)->best_agent_gas = gas_conc;
-    s.at(ID)->best_agent_pos = agent_pos;
-    if (gas_conc > environment.best_gas)
-    {
-      environment.best_gas = gas_conc;
-      environment.best_gas_pos_x = agent_pos.x;
-      environment.best_gas_pos_y = agent_pos.y;
-    }
-  }
+  // repulsion from other agents
   std::vector<uint> closest_ids = o.request_closest(ID);
-  // new goal is computed every 'update_time' [sec]
-
-
-  
-  if ( simtime_seconds-iteration_start_time >= update_time || getDistance(goal,agent_pos) < dist_reached_goal )
-  {
-    iteration_start_time = simtime_seconds;
-    float r_p = rg.uniform_float(0,1);
-    float r_g = rg.uniform_float(0,1);
-    
-    random_point = {.x = rg.uniform_float(environment.x_min,environment.x_max),.y = rg.uniform_float(environment.y_min,environment.y_max)};
-    float v_x = rand_p*(random_point.x-agent_pos.x)+omega*(goal.x-agent_pos.x)+phi_p*r_p*(s.at(ID)->best_agent_pos.x-agent_pos.x)+phi_g*r_g*(environment.best_gas_pos_x-agent_pos.x);
-    float v_y = rand_p*(random_point.y-agent_pos.y)+omega*(goal.y-agent_pos.y)+phi_p*r_p*(s.at(ID)->best_agent_pos.y-agent_pos.y)+phi_g*r_g*(environment.best_gas_pos_y-agent_pos.y);
-    goal = {.x = agent_pos.x + v_x,.y = agent_pos.y+v_y}; 
-
-    s.at(ID)->goal = goal;
-  }
-  else if (simtime_seconds == 0.0)
-  {
-    // initial velocity for everyone
-    goal = {.x = rg.uniform_float(environment.x_min,environment.x_max), .y=rg.uniform_float(environment.y_min,environment.y_max)};
-    local_psi = get_heading_to_point(agent_pos,goal);
-  }
-
- 
-  
   if ( closest_ids.size() > 0 )
   {
     if (get_agent_dist(ID,closest_ids[0]) < swarm_avoidance_thres)
@@ -223,31 +101,54 @@ void PSO::get_velocity_command(const uint16_t ID, float &v_x, float &v_y)
     started_agent_avoid = false;
     }
   }
+
+
+  // load gas concentration at current position
+  int x_indx = clip((int)((s.at(ID)->state[1]-environment.x_min)/(environment.x_max-environment.x_min)*(float)(environment.gas_obj.numcells[0])),0,environment.gas_obj.numcells[0]);
+  int y_indx = clip((int)((s.at(ID)->state[0]-environment.y_min)/(environment.y_max-environment.y_min)*(float)(environment.gas_obj.numcells[1])),0,environment.gas_obj.numcells[1]);
+  float gas_conc = (float)(environment.gas_obj.gas_data[(int)(floor(simtime_seconds))][x_indx][y_indx]);
+
+  // update best found agent position and best found swarm position if required
+  if( gas_conc>s.at(ID)->best_agent_gas)
+  {
+    s.at(ID)->best_agent_gas = gas_conc;
+    s.at(ID)->best_agent_pos = agent_pos;
+    if (gas_conc > environment.best_gas)
+    {
+      environment.best_gas = gas_conc;
+      environment.best_gas_pos_x = agent_pos.x;
+      environment.best_gas_pos_y = agent_pos.y;
+    }
+  }
+ 
+  // new goal is computed every 'update_time' [sec]
+
+  if ( simtime_seconds-iteration_start_time >= update_time || getDistance(goal,agent_pos) < dist_reached_goal )
+  {
+    iteration_start_time = simtime_seconds;
+    float r_p = rg.uniform_float(0,1);
+    float r_g = rg.uniform_float(0,1);
+    
+    random_point = {.x = rg.uniform_float(environment.x_min,environment.x_max),.y = rg.uniform_float(environment.y_min,environment.y_max)};
+    float v_x = rand_p*(random_point.x-agent_pos.x)+omega*(goal.x-agent_pos.x)+phi_p*r_p*(s.at(ID)->best_agent_pos.x-agent_pos.x)+phi_g*r_g*(environment.best_gas_pos_x-agent_pos.x);
+    float v_y = rand_p*(random_point.y-agent_pos.y)+omega*(goal.y-agent_pos.y)+phi_p*r_p*(s.at(ID)->best_agent_pos.y-agent_pos.y)+phi_g*r_g*(environment.best_gas_pos_y-agent_pos.y);
+    goal = {.x = agent_pos.x + v_x,.y = agent_pos.y+v_y}; 
+
+    s.at(ID)->goal = goal;
+  }
+  else if (simtime_seconds == 0.0)
+  {
+    // initial velocity for everyone
+    goal = {.x = rg.uniform_float(environment.x_min,environment.x_max), .y=rg.uniform_float(environment.y_min,environment.y_max)};
+    local_psi = get_heading_to_point(agent_pos,goal);
+  }
+
+ 
+
   // normalize vector to original desired velocity size
   float vector_size = sqrtf(powf(local_vx,2)+powf(local_vy,2));
   local_vx = local_vx/vector_size*desired_velocity;
   local_vy = local_vy/vector_size*desired_velocity;
-
-  float curr_heading = atan2(local_vx,local_vy);
-  if (headings.size() > 0)
-  {
-  headings_d.push_back(abs(headings.back()-curr_heading));
-  headings.push_back(curr_heading);
-  }
-  else
-  {
-    headings_d.push_back(0.0f);
-    headings.push_back(curr_heading);
-  }
-
-  if (headings.size() > num_prev_position_recording)
-  {
-    headings_d.erase(headings_d.begin());
-    headings.erase(headings.begin());
-  }
-  
- 
-
 
   v_x = local_vx;
   v_y = local_vy;

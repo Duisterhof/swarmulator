@@ -63,6 +63,8 @@ public:
 	float iteration_start_time = 0.0;
 	float local_vx, local_vy;
 	float local_psi = 0.0;
+	// float desired_laser = 2.5;
+	std::vector<float> lasers;
 
 	// AI-determined Parameters
 	// configuration parameters for PSO
@@ -95,7 +97,18 @@ public:
 
 	float os_head_thres = 0.06;
 	float heading_d_avg = 0.0;
-	bool rotate_left = true;
+
+	bool critic_avoid = false;
+	bool got_new_wp = false;
+	bool search_left = false;
+	bool init_wall_following = true;
+
+	int first_safe_laser = 0;
+	int desired_laser = 0;
+	int start_searching_laser = 0;
+	int max_reached_laser = 0;
+	int laser_idx = 0;
+	float desired_psi ;
 	// // wall following params
 	// float heading_kp = 3.0;
 	// float heading_kd = 30.0;
@@ -110,7 +123,7 @@ public:
 
 	// wall avoiding parameters
 	float desired_velocity = 0.5;
-	float desired_laser_distance = 1.0; // desired minimal laser distance when following a wall
+	float desired_laser_distance = 2.5; // desired minimal laser distance when following a wall
 	float critical_laser_distance = 0.5; // when this point is reached we should be really really careful
 	float engage_laser_distance = 1.5; // the end of the wall following zone, get more than this clearance to get out
 	float min_laser = desired_laser_distance; //the minimum found laser distance

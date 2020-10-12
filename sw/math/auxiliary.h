@@ -286,7 +286,7 @@ inline static int load_gas_file(const std::string filename, const bool first_fil
     int max = 0;
     for (row = 7; row<last_row; row++){
       current_row = std::vector<int>(temp_matrix[row].begin(),temp_matrix[row].end());
-      if (current_row[2] == 0){ //measuring gas concentration at ground level
+      if (current_row[2] == 10){ //measuring gas concentration at ground level
         temp_gas_arr[current_row[0]][current_row[1]] = current_row[3];
         if (current_row[3] > max) 
         {

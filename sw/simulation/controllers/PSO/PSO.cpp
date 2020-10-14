@@ -87,6 +87,7 @@ void PSO::get_velocity_command(const uint16_t ID, float &v_x, float &v_y)
 
     // repulsion from other agents
     std::vector<uint> closest_ids = o.request_closest(ID);
+    check_swarm_close(closest_ids, ID);
     if ( closest_ids.size() > 0 )
     {
       if (get_agent_dist(ID,closest_ids[0]) < swarm_avoidance_thres)
@@ -126,8 +127,6 @@ void PSO::get_velocity_command(const uint16_t ID, float &v_x, float &v_y)
 
           s.at(ID)->goal = goal;
         }
-
-
       }
       else
       {
@@ -138,6 +137,9 @@ void PSO::get_velocity_command(const uint16_t ID, float &v_x, float &v_y)
   // if not critic, we do wall following instead
   else
   {
+    // check if we should be in this mode
+    std::vector<uint> closest_ids = o.request_closest(ID);
+    check_swarm_close(closest_ids, ID);
     // if we first start wall following, determine the desired direction (+x, -x, +y, -y)
     if (init_wall_following || got_new_wp)
     {
@@ -152,7 +154,8 @@ void PSO::get_velocity_command(const uint16_t ID, float &v_x, float &v_y)
         desired_laser += 4;
       }
 
-      if ((local_psi-desired_laser*M_PI_2) > M_PI_4)
+      desired_direction = s.at(ID)->get_orientation() + desired_laser*M_PI_2;
+      if ((local_psi-desired_direction) > M_PI_4)
       {
         desired_laser += 1;
         search_left = true;
@@ -161,6 +164,7 @@ void PSO::get_velocity_command(const uint16_t ID, float &v_x, float &v_y)
       {
         search_left = false;
       }
+     
       
       init_wall_following = false;
       got_new_wp = false;
@@ -185,7 +189,7 @@ void PSO::get_velocity_command(const uint16_t ID, float &v_x, float &v_y)
         terminalinfo::debug_msg(std::to_string(start_searching_laser));
         terminalinfo::debug_msg(std::to_string(desired_laser-4));
         first_safe_laser = -1;
-        for (int i = start_searching_laser; i > (desired_laser-4) ; i--)
+        for (int i = start_searching_laser; i > (start_searching_laser-4) ; i--)
         {
           terminalinfo::debug_msg(std::to_string(i));
           // round to 0-3 bounds
@@ -217,6 +221,7 @@ void PSO::get_velocity_command(const uint16_t ID, float &v_x, float &v_y)
         // we 'rotate' left to find the source
     else
     {
+
         // determine start laser to check
         if (max_reached_laser > desired_laser)
         {
@@ -230,7 +235,7 @@ void PSO::get_velocity_command(const uint16_t ID, float &v_x, float &v_y)
         terminalinfo::debug_msg(std::to_string(start_searching_laser));
         terminalinfo::debug_msg(std::to_string(desired_laser+4));
         first_safe_laser = -1;
-        for (int i = start_searching_laser; i < (desired_laser+4) ; i++)
+        for (int i = start_searching_laser; i < (start_searching_laser+4) ; i++)
         {
           terminalinfo::debug_msg(std::to_string(i));
           // round to 0-3 bounds
@@ -400,6 +405,30 @@ bool PSO::get_follow_direction(std::vector<float> ranges, float desired_heading,
   {
     return false;
   }
+}
+void PSO::check_swarm_close(std::vector<uint> closest_ids, uint self_id)
+{
+  if (closest_ids.size() == 0 )
+  {
+    critic_avoid = false;
+  }
+  else
+  {
+    if ( get_agent_dist(closest_ids[0],self_id) < swarm_avoidance_thres )
+    {
+      critic_avoid = true;
+    }
+    else if (get_agent_dist(closest_ids[0],self_id) < swarm_release_thres && critic_avoid == true )
+    {
+      critic_avoid = true;
+    }
+    else
+    {
+      critic_avoid = false;
+    }
+    
+  }
+  
 }
 
 // returns if going in a desired direction is safe

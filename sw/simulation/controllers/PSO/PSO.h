@@ -49,6 +49,7 @@ public:
 	bool get_follow_direction(std::vector<float> ranges, float desired_heading, float agent_heading);
 	bool get_safe_direction(std::vector<float> ranges, float desired_heading, float threshold, float agent_heading);
 	float get_agent_dist(const uint16_t ID1, const uint16_t ID2);
+	void check_swarm_close(std::vector<uint> closest_ids, uint self_id);
 	float laser_headings[4] = {0,M_PI_2,M_PI,3*M_PI_2};
 	OmniscientObserver o;
 	std::vector<float> prev_x;
@@ -65,9 +66,10 @@ public:
 	float local_psi = 0.0;
 	// float desired_laser = 2.5;
 	std::vector<float> lasers;
-
+	
 	// AI-determined Parameters
 	// configuration parameters for PSO
+	float desired_direction = 0.0;
 	float rand_p = 0.1;
 	float omega = 0.5;
 	float phi_p = 0.5;
@@ -81,6 +83,8 @@ public:
 	float swarm_rerout_time = 3.0;
 	float started_swarm_avoid_time = 0.0;
 	float swarm_avoidance_thres = 0.8;
+	float swarm_release_thres = 1.5;
+
 	float swarm_avoidance_release = 1.5;
 	float k_swarm_avoidance = 5.0;	
 	float k_swarm_laser_rep = 5.0;

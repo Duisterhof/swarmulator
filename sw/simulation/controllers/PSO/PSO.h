@@ -45,7 +45,6 @@ public:
 	virtual void animation(const uint16_t ID);
 	laser_ray get_laser_reads(laser_ray ray, const uint16_t ID);
 	float get_ray_control(laser_ray ray, float dt);
-	float get_heading_to_point(Point agent, Point goal);
 	bool get_follow_direction(std::vector<float> ranges, float desired_heading, float agent_heading);
 	bool get_safe_direction(std::vector<float> ranges, float desired_heading, float threshold, float agent_heading);
 	float get_agent_dist(const uint16_t ID1, const uint16_t ID2);
@@ -64,29 +63,32 @@ public:
 	float iteration_start_time = 0.0;
 	float local_vx, local_vy;
 	float local_psi = 0.0;
+	float x_y_timeout = 0.0;
+	float x_y_timeout_thres = 5.0;
 	// float desired_laser = 2.5;
 	std::vector<float> lasers;
 	
 	// AI-determined Parameters
 	// configuration parameters for PSO
 	float desired_direction = 0.0;
-	float rand_p = 0.1;
-	float omega = 0.5;
-	float phi_p = 0.5;
-	float phi_g = 2.5;
+	float rand_p = 0.0;
+	float omega = 0.2;
+	float phi_p = 0.3;
+	float phi_g = 0.5;
 	float yaw_incr = 0.1;
-	float update_time = 40.0;
+	float update_time = 10.0;
 	float dist_reached_goal = 0.5;
 	bool follow_left = false; 
 	bool started_agent_avoid = false;
 	bool decide_direction = false;
 	float swarm_rerout_time = 3.0;
 	float started_swarm_avoid_time = 0.0;
-	float swarm_avoidance_thres = 0.8;
-	float swarm_release_thres = 1.5;
+	float swarm_avoidance_thres = 0.5;
+	float swarm_release_thres = 1.0;
+	
 
 	float swarm_avoidance_release = 1.5;
-	float k_swarm_avoidance = 5.0;	
+	float k_swarm_avoidance = 25.0;	
 	float k_swarm_laser_rep = 5.0;
 	float reset_wall_follow_time = 0.0;
 	float reset_wall_follow_time_thres = 1.5; //[sec]
@@ -113,6 +115,7 @@ public:
 	int max_reached_laser = 0;
 	int laser_idx = 0;
 	float desired_psi ;
+	float random_steering;
 	// // wall following params
 	// float heading_kp = 3.0;
 	// float heading_kd = 30.0;

@@ -107,8 +107,8 @@ void PSO::get_velocity_command(const uint16_t ID, float &v_x, float &v_y)
             other_agent_pos.y = s.at(closest_ids[i])->state[0];
             float heading_to_other_agent = get_heading_to_point(agent_pos,other_agent_pos);
             float heading_away_from_agent = heading_to_other_agent - M_PI;
-            local_vx += cosf(heading_away_from_agent)*k_swarm_avoidance*powf(swarm_avoidance_release-get_agent_dist(ID,closest_ids[i]),2);
-            local_vy += sinf(heading_away_from_agent)*k_swarm_avoidance*powf(swarm_avoidance_release-get_agent_dist(ID,closest_ids[i]),2);
+            local_vx += cosf(heading_away_from_agent)*k_swarm_avoidance*swarm_avoidance_thres-get_agent_dist(ID,closest_ids[i]);
+            local_vy += sinf(heading_away_from_agent)*k_swarm_avoidance*swarm_avoidance_thres-get_agent_dist(ID,closest_ids[i]);
           }
         }
         // reroute after certain time
@@ -141,8 +141,9 @@ void PSO::get_velocity_command(const uint16_t ID, float &v_x, float &v_y)
     std::vector<uint> closest_ids = o.request_closest(ID);
     check_swarm_close(closest_ids, ID);
     // if we first start wall following, determine the desired direction (+x, -x, +y, -y)
-    if (init_wall_following || got_new_wp)
+    if (init_wall_following || got_new_wp )
     {
+      x_y_timeout = simtime_seconds;
       desired_laser = (int)((local_psi-s.at(ID)->get_orientation())/M_PI_2); 
 
       if (desired_laser > 3)
@@ -153,17 +154,33 @@ void PSO::get_velocity_command(const uint16_t ID, float &v_x, float &v_y)
       {
         desired_laser += 4;
       }
-
-      desired_direction = s.at(ID)->get_orientation() + desired_laser*M_PI_2;
-      if ((local_psi-desired_direction) > M_PI_4)
+      random_steering = rg.uniform_float(0,1);
+      if (random_steering > 0.2)
       {
-        desired_laser += 1;
-        search_left = true;
+        desired_direction = s.at(ID)->get_orientation() + desired_laser*M_PI_2;
+        if ((local_psi-desired_direction) > M_PI_4)
+        {
+          desired_laser += 1;
+          search_left = true;
+        }
+        else
+        {
+          search_left = false;
+        }
       }
       else
       {
-        search_left = false;
+        if (random_steering > 0.1)
+        {
+          desired_laser += 1;
+          search_left = true;
+        }
+        else
+        {
+          search_left = false;
+        }
       }
+      
      
       
       init_wall_following = false;
@@ -172,6 +189,8 @@ void PSO::get_velocity_command(const uint16_t ID, float &v_x, float &v_y)
       max_reached_laser = start_searching_laser;
     }
     lasers = s.at(ID)->laser_ranges;
+
+    
 
     // we 'rotate' left to find the source
     if (search_left)
@@ -185,6 +204,7 @@ void PSO::get_velocity_command(const uint16_t ID, float &v_x, float &v_y)
         {
           start_searching_laser = desired_laser;
         }
+        // start_searching_laser = desired_laser;
         terminalinfo::debug_msg("start");
         terminalinfo::debug_msg(std::to_string(start_searching_laser));
         terminalinfo::debug_msg(std::to_string(desired_laser-4));
@@ -211,6 +231,7 @@ void PSO::get_velocity_command(const uint16_t ID, float &v_x, float &v_y)
             first_safe_laser = i;
           }
         }
+
         if (first_safe_laser < max_reached_laser)
         {
           max_reached_laser = first_safe_laser;
@@ -231,6 +252,7 @@ void PSO::get_velocity_command(const uint16_t ID, float &v_x, float &v_y)
         {
           start_searching_laser = desired_laser;
         }
+        // start_searching_laser = desired_laser;
         terminalinfo::debug_msg("start");
         terminalinfo::debug_msg(std::to_string(start_searching_laser));
         terminalinfo::debug_msg(std::to_string(desired_laser+4));
@@ -257,26 +279,21 @@ void PSO::get_velocity_command(const uint16_t ID, float &v_x, float &v_y)
             first_safe_laser = i;
           }
         }
-
+        
         if (first_safe_laser > max_reached_laser)
         {
           max_reached_laser = first_safe_laser;
         }
 
+
         desired_psi = s.at(ID)->get_orientation() + first_safe_laser*M_PI_2;
     
     }
-    
     desired_psi = s.at(ID)->get_orientation() + first_safe_laser*M_PI_2;
     local_vx = cosf(desired_psi)*desired_velocity;
     local_vy = sinf(desired_psi)*desired_velocity;   
-
-
-
   }
   
-
-
   // load gas concentration at current position
   int x_indx = clip((int)((s.at(ID)->state[1]-environment.x_min)/(environment.x_max-environment.x_min)*(float)(environment.gas_obj.numcells[0])),0,environment.gas_obj.numcells[0]);
   int y_indx = clip((int)((s.at(ID)->state[0]-environment.y_min)/(environment.y_max-environment.y_min)*(float)(environment.gas_obj.numcells[1])),0,environment.gas_obj.numcells[1]);
@@ -296,10 +313,6 @@ void PSO::get_velocity_command(const uint16_t ID, float &v_x, float &v_y)
   }
  
   // new goal is computed every 'update_time' [sec]
-
-
- 
-
   // normalize vector to original desired velocity size
   float vector_size = sqrtf(powf(local_vx,2)+powf(local_vy,2));
   local_vx = local_vx/vector_size*desired_velocity;
@@ -320,31 +333,6 @@ float PSO::get_agent_dist(const uint16_t ID1, const uint16_t ID2)
   return(sqrtf(pow(s.at(ID1)->state[0]-s.at(ID2)->state[0],2)+pow(s.at(ID1)->state[1]-s.at(ID2)->state[1],2)));
 }
 
-/**
- * Returns the heading in radians between two points
- * @param x_agent: x_coord of agent
- * @param y_agent: y_coord of agent
- * @param x_point: x_coord of agent
- * @param y_point: y_coord of agent
-*/
-float PSO::get_heading_to_point(Point agent, Point goal)
-{
-  float delta_x = goal.x - agent.x;
-  float delta_y = goal.y - agent.y;
-  float psi = atan2(delta_x,delta_y);
-
-  // place psi in [-pi,pi]
-  if ( psi< M_PI)
-  {
-    psi = psi + 2*M_PI;
-  }
-  else if (psi> M_PI)
-  {
-    psi = psi - 2*M_PI;
-  }
-
-  return psi;
-}
 
 /**
  * Helper function to model laser ranger in a specified direction

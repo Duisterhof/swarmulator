@@ -195,11 +195,7 @@ inline static std::vector<std::vector<float>> read_matrix(const std::string file
   return matrix;
 }
 
-// object to accomodate inference of a MLP
-struct Policy {
-  std::vector<float> params; //single array with all weights, bias add
-  std::vector<int> shape; //array with number of nodes in each layer, e.g., [3,20,20,3] means input layer with 3 nodes, 2 hidden lyaers of 20 nodes, output layer with 3 nodes
-};
+
 
 /**
  * Read policy parameters from txt file
@@ -468,6 +464,40 @@ struct Point {
 };
 
 /**
+ * 2D line of the form : a*x + b*y + c = 0
+ * heading in global frame
+ */
+
+struct Line {
+  Point p0;
+  Point p1;
+  float a;
+  float b; 
+  float c; 
+  float heading;
+};
+
+
+inline static float get_heading_to_point(Point agent, Point goal)
+{
+  float delta_x = goal.x - agent.x;
+  float delta_y = goal.y - agent.y;
+  float psi = atan2(delta_x,delta_y);
+
+  // place psi in [-pi,pi]
+  if ( psi< M_PI)
+  {
+    psi = psi + 2*M_PI;
+  }
+  else if (psi> M_PI)
+  {
+    psi = psi - 2*M_PI;
+  }
+
+  return psi;
+}
+
+/**
  * Given three colinear points p, q, r, the function checks if point q lies on line segment 'pr'
  *
  * @param p
@@ -486,6 +516,50 @@ inline static bool onSegment(Point p, Point q, Point r)
 
   return false;
 }
+
+/**
+ * construct line from point P1 to point P2
+*/
+
+inline static void update_line(Line* line)
+{
+  float dx = line->p1.x - line->p0.x;
+  float dy = line->p1.y - line->p0.y;
+  line->heading = get_heading_to_point(line->p0,line->p1);
+  // p0 and p1 are the same
+  if (dx == 0 && dy ==0) 
+  {
+    line->a = 0;
+    line->b = 0;
+    line->c = 0;
+
+  }
+  // vertical line
+  else if (dx == 0)
+  {
+    line->a = 1;
+    line->b = 0;
+    line->c = -line->p0.x;
+  }
+  // horizontal line
+  else if (dy == 0)
+  {
+    line->a = 0;
+    line->b = 1;
+    line->c = -line->p0.y;
+  }
+  // neither horizontal nor vertical line
+  else
+  {
+    line->a = 1;
+    line->b = -dx/dy;
+    line->c = -line->a*line->p0.x - line->b*line->p0.y ;
+  }
+
+  
+
+}
+
 
 /**
  * Function to find orientation of ordered triplet (p, q, r).

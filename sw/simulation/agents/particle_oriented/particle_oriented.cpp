@@ -40,21 +40,20 @@ vector<float> particle_oriented::state_update(vector<float> state)
   state.at(6) += state[7] * dt;
   orientation = wrapToPi_f(state[6]);
 
-  terminalinfo::debug_msg("commanded velocities: "+std::to_string(vx_global)+ " " + std::to_string(vy_global));
   // Acceleration control
   float ka = 2;
-  // state.at(4) = ka * (vx_global - state[2]); // Acceleration global frame
-  // state.at(5) = ka * (vy_global - state[3]); // Acceleration global frame
-  state.at(4) = 0;
-  state.at(5) = 0;
+  state.at(4) = ka * (vx_global - state[2]); // Acceleration global frame
+  state.at(5) = ka * (vy_global - state[3]); // Acceleration global frame
+  // state.at(4) = 0;
+  // state.at(5) = 0;
   moving = controller->moving;
   happy = controller->happy;
 
   // Velocity
-  // state.at(2) += state[4] * dt; // Velocity x global frame
-  // state.at(3) += state[5] * dt; // Velocity y global frame
-  state[2] = vx_global;
-  state[3] = vy_global;
+  state.at(2) += state[4] * dt; // Velocity x global frame
+  state.at(3) += state[5] * dt; // Velocity y global frame
+  // state[2] = vx_global;
+  // state[3] = vy_global;
   state.at(2)=state[2];
   state.at(3)=state[3];
 

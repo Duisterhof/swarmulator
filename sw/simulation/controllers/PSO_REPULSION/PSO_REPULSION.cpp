@@ -133,32 +133,6 @@ void PSO_REPULSION::animation(const uint16_t ID)
 }
 
 /**
- * Returns the heading in radians between two points
- * @param x_agent: x_coord of agent
- * @param y_agent: y_coord of agent
- * @param x_point: x_coord of agent
- * @param y_point: y_coord of agent
-*/
-float PSO_REPULSION::get_heading_to_point(Point agent, Point goal)
-{
-  float delta_x = goal.x - agent.x;
-  float delta_y = goal.y - agent.y;
-  float psi = atan2(delta_x,delta_y);
-
-  // place psi in [-pi,pi]
-  if ( psi< M_PI)
-  {
-    psi = psi + 2*M_PI;
-  }
-  else if (psi> M_PI)
-  {
-    psi = psi - 2*M_PI;
-  }
-
-  return psi;
-}
-
-/**
  * Helper function to model laser ranger in a specified direction
  * @param (Point) agent_position: current position of agent to consider
  * @param (float) heading: orientation of the laser ranger for the agent

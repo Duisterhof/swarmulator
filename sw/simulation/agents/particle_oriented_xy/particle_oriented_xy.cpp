@@ -4,6 +4,7 @@
 #include "draw.h"
 using namespace std;
 
+#define COMMAND_LOCAL 1
 particle_oriented_xy::particle_oriented_xy(int i, vector<float> s, float tstep)
 {
   state = s;
@@ -45,7 +46,6 @@ vector<float> particle_oriented_xy::state_update(vector<float> state)
   state.at(4) = ka * (vx_global - state[2]); // Acceleration global frame
   state.at(5) = ka * (vy_global - state[3]); // Acceleration global frame
   moving = controller->moving;
-  happy = controller->happy;
 
   // Velocity
   state.at(2) += state[4] * dt; // Velocity x global frame
@@ -64,3 +64,7 @@ void particle_oriented_xy::animation()
 
   d.triangle(param->scale());
 }
+
+ 
+
+

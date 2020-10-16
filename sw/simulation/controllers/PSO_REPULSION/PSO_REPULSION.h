@@ -33,7 +33,6 @@ public:
 	virtual void animation(const uint16_t ID);
 	void get_laser_reads(laser_ray ray, const uint16_t ID);
 	float get_ray_control(laser_ray ray, float dt);
-	float get_heading_to_point(Point agent, Point goal);
 	bool get_follow_direction(std::vector<float> ranges, float desired_heading);
 	float laser_headings[4] = {0,M_PI_2,M_PI,3*M_PI_2};
 	

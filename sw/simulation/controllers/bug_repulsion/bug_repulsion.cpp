@@ -24,6 +24,7 @@ void bug_repulsion::get_velocity_command(const uint16_t ID, float &v_x, float &v
     // initial velocity for everyone
     goal = {.x = rg.uniform_float(environment.x_min,environment.x_max), .y=rg.uniform_float(environment.y_min,environment.y_max)};
     s.at(ID)->goal = goal; 
+    get_new_line();
     update_direction(ID);
   }
 

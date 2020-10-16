@@ -68,7 +68,7 @@ public:
 	float rand_p = 0.0;
 	float omega = 0.2;
 	float phi_p = 0.3;
-	float phi_g = 0.5;
+	float phi_g = 2.0;
 
 	// line following
 	float line_heading; // heading from agent_pos to goal

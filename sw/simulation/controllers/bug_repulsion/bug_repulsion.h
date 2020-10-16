@@ -48,6 +48,10 @@ public:
 	laser_ray get_laser_reads(laser_ray ray, const uint16_t ID);
 	void load_all_lasers(const uint16_t ID);
 	void update_best_wps(const uint16_t ID);
+	void get_new_line(void);
+	void follow_line(float* v_x, float* v_y);
+	void update_follow_laser(void);
+	void update_direction(const uint16_t ID);
 
 	random_generator rg;
 	Point agent_pos, goal, random_point;	// agent position point struct
@@ -65,6 +69,19 @@ public:
 	float omega = 0.2;
 	float phi_p = 0.3;
 	float phi_g = 0.5;
+
+	// line following
+	float line_heading; // heading from agent_pos to goal
+	int lower_idx; // from a clockwise-postive, the lower idx of the laser in the heading zone
+	int upper_idx; // same
+	float corrected_heading; // line_heading - agent_heading. 
+	float quad_heading;// heading between lower-idx and line_heading
+	
+	int following_laser; // laser that we're following in body frame heading defined in 'laser_headings'
+	float following_heading; // corresponding heading, in body frame
+
+	float line_max_dist = 0.5; // max x [m] from line until we move again to move back to it
+	float desired_velocity = 0.5; // [m/s]
 };
 
 #endif /*BUG_REPULSION_H*/

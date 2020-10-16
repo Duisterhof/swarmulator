@@ -10,11 +10,11 @@
 void bug_repulsion::get_velocity_command(const uint16_t ID, float &v_x, float &v_y)
 {
   state = s.at(ID)->state; // load agent state
-
-  
   agent_pos.x = state[1]; // loading agent pos struct Point
   agent_pos.y = state[0];
-  load_all_lasers(ID);
+  load_all_lasers(ID); // modelling multirangers
+  update_best_wps(ID); // use gas sensing to update the best seen points 
+
   if ( simtime_seconds-iteration_start_time >= update_time || getDistance(goal,agent_pos) < dist_reached_goal )
   {
     generate_new_wp(ID);
@@ -24,13 +24,45 @@ void bug_repulsion::get_velocity_command(const uint16_t ID, float &v_x, float &v
     // initial velocity for everyone
     goal = {.x = rg.uniform_float(environment.x_min,environment.x_max), .y=rg.uniform_float(environment.y_min,environment.y_max)};
     s.at(ID)->goal = goal; 
+    update_direction(ID);
   }
 
-  v_x = 1.0;
-  v_y = 0.0;
+  follow_line(&v_x, &v_y);
+}
+
+// updates individual and swarm best wps
+void bug_repulsion::get_new_line(void)
+{
+  line_to_goal.p0 = agent_pos;
+  line_to_goal.p1 = goal;
+  update_line(&line_to_goal);
+}
+
+void bug_repulsion::update_follow_laser(void)
+{
+  if (get_heading_to_point(agent_pos,goal) > line_heading)
+  {
+    following_laser = upper_idx;
+  }
+  else
+  {
+    following_laser = lower_idx;
+  }
+  
+}
+
+// called when following the line within a corridor
+void bug_repulsion::follow_line(float* v_x, float* v_y)
+{
+  if (get_distance_to_line(line_to_goal,agent_pos) > line_max_dist)
+  {
+    update_follow_laser();
+  }
+  following_heading = following_laser*M_PI_2;
+  *(v_x) = cosf(following_heading)*desired_velocity;
+  *(v_y) = sinf(following_heading)*desired_velocity;
 
 }
-// updates individual and swarm best wps
 
 void bug_repulsion::update_best_wps(const uint16_t ID)
 {
@@ -40,7 +72,7 @@ void bug_repulsion::update_best_wps(const uint16_t ID)
   float gas_conc = (float)(environment.gas_obj.gas_data[(int)(floor(simtime_seconds))][x_indx][y_indx]);
 
   // update best found agent position and best found swarm position if required
-  if( gas_conc>s.at(ID)->best_agent_gas)
+  if( gas_conc > s.at(ID)->best_agent_gas)
   {
     s.at(ID)->best_agent_gas = gas_conc;
     s.at(ID)->best_agent_pos = agent_pos;
@@ -65,7 +97,33 @@ void bug_repulsion::generate_new_wp(const uint16_t ID)
   goal = {.x = agent_pos.x + v_x,.y = agent_pos.y+v_y}; 
 
   s.at(ID)->goal = goal; 
+  get_new_line();
+  update_direction(ID);
 }
+
+void bug_repulsion::update_direction(const uint16_t ID)
+{
+  line_heading = get_heading_to_point(agent_pos,goal); // used to follow the line
+  corrected_heading = line_heading - s.at(ID)->get_orientation();
+  positive_angle(&corrected_heading);
+
+  lower_idx = (int)(corrected_heading/M_PI_2);
+  upper_idx = lower_idx+1;
+
+  cap_laser(&lower_idx);
+  cap_laser(&upper_idx);
+
+  if (abs(line_heading-(lower_idx*M_PI_2+s.at(ID)->get_orientation())) > M_PI_4)
+  {
+    following_laser = upper_idx;
+  }
+  else
+  {
+    following_laser = lower_idx;
+  }
+}
+
+
 
 void bug_repulsion::load_all_lasers(const uint16_t ID)
 {

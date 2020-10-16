@@ -517,6 +517,31 @@ inline static bool onSegment(Point p, Point q, Point r)
   return false;
 }
 
+
+inline static void positive_angle(float* angle)
+{
+  while(*(angle) < 0)
+  {
+    *(angle) += 2*M_PI;
+  }
+  while(*(angle) > (2*M_PI))
+  {
+    *(angle) -= 2*M_PI;
+  }
+}
+
+inline static void cap_laser(int* idx)
+{
+  while(*(idx) < 0)
+  {
+    *(idx) += 4;
+  }
+  while(*(idx) > (3))
+  {
+    *(idx) -= 4;
+  }
+}
+
 /**
  * construct line from point P1 to point P2
 */
@@ -706,6 +731,11 @@ inline static std::tuple<bool,Point> getIntersect(Point p1, Point q1, Point p2, 
 inline static float getDistance(Point p1, Point p2)
 {
   return (std::sqrt((p1.x-p2.x)*(p1.x-p2.x)+(p1.y-p2.y)*(p1.y-p2.y)));
+}
+
+inline static float get_distance_to_line(Line line, Point p0)
+{
+return( abs(line.a*p0.x+line.b*p0.y+line.c) / ( sqrt(pow(line.a,2)+pow(line.b,2)) ) )   ;
 }
 
 

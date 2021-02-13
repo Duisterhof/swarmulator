@@ -179,6 +179,25 @@ void draw::test_point(float x, float y)
   glEnd();
 }
 
+void draw::red_point(float x, float y)
+{
+  glPointSize(10.0);
+  glBegin(GL_POINTS);
+  glColor3ub(255,0,0);
+  // glTranslatef(y * xrat, x * yrat, 0.0);
+  glVertex3f(x*xrat, y*yrat, 0);
+  glEnd();
+}
+void draw::yellow_point(float x, float y)
+{
+  glPointSize(10.0);
+  glBegin(GL_POINTS);
+  glColor3ub(255,255,0);
+  // glTranslatef(y * xrat, x * yrat, 0.0);
+  glVertex3f(x*xrat, y*yrat, 0);
+  glEnd();
+}
+
 void draw::source()
 {
   glPointSize(10.0);
@@ -186,7 +205,7 @@ void draw::source()
   glColor3ub(0,0,255);
   std::vector<float> source_pos = environment.gas_obj.source_location;
 
-  glVertex3f(source_pos[0]-5.0, source_pos[1]-5.0, 0);
+  glVertex3f((source_pos[0]+environment.x_min)*xrat, (source_pos[1]+environment.y_min)*yrat, 0);
   glEnd();
 }
 

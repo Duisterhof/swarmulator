@@ -39,7 +39,7 @@ void main_loop_function()
   
   if(!strcmp(euclidean.c_str(), "False"))
   {
-    bmp_loc = "conf/environments/"+ param->environment()+ "/gas_simulations/iteration_"+std::to_string((int)(floor(simtime_seconds)))+".bmp";
+    bmp_loc = "conf/environments/"+ environment.env_dir+ "/gas_simulations/iteration_"+std::to_string((int)(floor(simtime_seconds)))+".bmp";
     drawer.bmp_bg(bmp_loc.c_str());
   }
   drawer.source(); //draw source position as dot
@@ -57,6 +57,8 @@ void main_loop_function()
       drawer.agent(ID, s[ID]->state.at(0), s[ID]->state.at(1), s[ID]->orientation);
       // Input: ID, p_x global, p_y global, v_x global, v_y global
       drawer.velocity_arrow(ID,  s[ID]->state.at(0), s[ID]->state.at(1), s[ID]->state.at(2), s[ID]->state.at(3));
+      drawer.red_point(s[ID]->goal.x,s[ID]->goal.y);
+      drawer.yellow_point(environment.best_gas_pos_x,environment.best_gas_pos_y);
       
       for (uint i = 0 ; i<s[ID]->laser_pnts.size(); i++)
       {

@@ -5,12 +5,17 @@
 #include <vector>
 #include <mutex>
 #include "randomgenerator.h"
-
-
+#include <fstream>
+// include headers that implement a archive in simple text format
+#include <boost/archive/text_oarchive.hpp>
+#include <boost/archive/text_iarchive.hpp>
+#include <cereal/archives/binary.hpp>
+#include <cereal/types/vector.hpp>
 
 class Gasdata
 {
   public:
+    Gasdata() = default;
     int num_it;
     size_t bmp_header_size;
     std::vector<float> source_location;
@@ -20,6 +25,50 @@ class Gasdata
     std::vector<int> numcells;
     std::vector<std::vector<std::vector<int>>> gas_data;
     std::vector<int> max_gas;
+
+  private:
+    friend class cereal::access;
+
+    // cereal supports class versioning although it is considered
+    // optional in cereal
+    template <class Archive>
+    void save( Archive & ar, std::uint32_t const version ) const
+    {
+      ar( num_it,bmp_header_size,source_location,env_min,env_max,cell_sizes,numcells,gas_data,max_gas); // operator() is the preferred way of interfacing the archive
+    }
+
+    template <class Archive>
+    void load( Archive & ar, std::uint32_t const version )
+    {
+      ar( num_it,bmp_header_size,source_location,env_min,env_max,cell_sizes,numcells,gas_data,max_gas); // operator() is the preferred way of interfacing the archive
+    }
+
+};
+class SomeData
+{
+  public:
+    SomeData() = default;
+    int a;
+    int b;
+
+  private:
+    friend class cereal::access;
+
+    // cereal supports class versioning although it is considered
+    // optional in cereal
+    template <class Archive>
+    void save( Archive & ar, std::uint32_t const version ) const
+    {
+      ar( a, b ); // operator() is the preferred way of interfacing the archive
+    }
+
+    template <class Archive>
+    void load( Archive & ar, std::uint32_t const version )
+    {
+      ar( a, b );
+    }
+
+    // note the lack of explicitly informing cereal to use a split member load/save
 };
 
 class Environment
@@ -33,6 +82,7 @@ public:
    * @brief class for storing all gas-related data of an environment
   */
   float x_min,x_max,y_min,y_max, env_size, env_diagonal;
+  std::string env_dir;
   Gasdata gas_obj; //obj containing all gas information for this environment
   std::vector<std::vector<float>> food;
   std::vector<float> beacon;
@@ -40,6 +90,9 @@ public:
   std::vector<float> headings;
   std::vector<std::vector<float>> walls;
   float nest;
+  float best_gas = -1.0; //best seen gas concentration in environment
+  float best_gas_pos_x = 0.0;
+  float best_gas_pos_y = 0.0;
   /**
   * @brief Construct a new Environment object
   *
@@ -51,6 +104,12 @@ public:
    *
    */
   ~Environment() {};
+
+/**
+ * @brief calls all loading functions
+*/
+void load(int argc, char *argv[]);
+
 
 /**
  * @brief if param->gas_seeking is True, this loads gas data from txt files (concentrations + wind velocities)

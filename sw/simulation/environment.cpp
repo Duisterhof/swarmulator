@@ -15,6 +15,19 @@ using namespace std;
 Environment::Environment(void)
 {
 
+}
+void Environment::load(int argc, char *argv[]){
+  if (argc>=4)
+  {
+    environment.env_dir = argv[3];
+  }
+  else
+  {
+    environment.env_dir = param->environment();
+  }
+  terminalinfo::debug_msg(environment.env_dir);
+  
+
   generate_dungeon();
 
   string s = param->agent_initialization();
@@ -25,6 +38,7 @@ Environment::Environment(void)
 
   define_walls();
  
+  save_gas_object(gas_obj,environment.env_dir);
 
   if (!strcmp(param->fitness().c_str(), "food")) {
     mtx_env.lock();
@@ -39,28 +53,40 @@ void Environment::load_gas_data(void){
   string s = param->gas_seeking();
   string euclidean = param->gas_euclidean();
   std::string bmp_filename;
-  string filename = "conf/environments/" + param->environment() + "/gas_simulations/iteration_";
+  string filename = "conf/environments/" + environment.env_dir + "/gas_simulations/iteration_";
+  string gas_obj_file = "conf/environments/" + environment.env_dir + "/gas_data.bin";
+  ifstream f(gas_obj_file.c_str());
+  bool gas_obj_exists = f.good();
+
   if (!strcmp(s.c_str(), "True") && !strcmp(euclidean.c_str(), "False")){
     
 
-    
-    bool last_file_found = false;
-    int i = 0;
-    terminalinfo::debug_msg("loading gas data ");
-    while (!last_file_found)
+    if (gas_obj_exists)
     {
-    
-    if(! load_gas_file(filename+std::to_string(i),true,gas_obj) || (i > (int)(param->time_limit())))
-    {
-      last_file_found = true;
+      gas_obj = load_gas_object(environment.env_dir);
     }
-    else{
-      #ifdef ANIMATION
-        bmp_filename = filename+std::to_string(i)+".bmp";
-        save_as_bmp(bmp_filename.c_str(),gas_obj, i);
-        gas_obj.num_it = i;
-        i++;
-      #endif
+    else
+    {
+      bool last_file_found = false;
+      int i = 0;
+      terminalinfo::debug_msg("loading gas data ");
+      while (!last_file_found)
+      {
+      
+      if(! load_gas_file(filename+std::to_string(i),true,gas_obj) || (i > (int)(param->time_limit())))
+      {
+        last_file_found = true;
+      }
+      else{
+        #ifdef ANIMATION
+          bmp_filename = filename+std::to_string(i)+".bmp";
+          save_as_bmp(bmp_filename.c_str(),gas_obj, i);
+          gas_obj.num_it = i;
+          i++;
+        #endif
+      }
+      save_gas_object(gas_obj,environment.env_dir);
+    
     }
     }    
   }
@@ -85,7 +111,7 @@ void Environment::get_min_max(std::vector<std::vector<float>> walls)
 
 void Environment::generate_dungeon(void)
 {
-  string s = param->environment();
+  string s = environment.env_dir;
   if (!strcmp(s.c_str(), "random")) {
     stringstream ss("python3 scripts/python/tools/dungeon_generator.py && mkdir --p ./conf/environments/random && mv rooms.txt ./conf/environments/random/walls.txt ");
     
@@ -96,7 +122,7 @@ void Environment::generate_dungeon(void)
 
 void Environment::define_walls(void)
 {
-  string filename = "conf/environments/" + param->environment() + "/walls.txt";
+  string filename = "conf/environments/" + environment.env_dir + "/walls.txt";
   walls = read_matrix(filename);
   get_min_max(walls);
 }
@@ -104,15 +130,15 @@ void Environment::define_walls(void)
 void Environment::complete_folder(void)
 {
   string s = param->agent_initialization();
-  string free_points_file = "conf/environments/" + param->environment() + "/spawn_pnts.txt";
+  string free_points_file = "conf/environments/" + environment.env_dir + "/spawn_pnts.txt";
   
-  stringstream ss("python3 scripts/python/tools/complete_folder.py -env_name="+param->environment());    
+  stringstream ss("python3 scripts/python/tools/complete_folder.py -env_name="+environment.env_dir);    
   system(ss.str().c_str());
   terminalinfo::info_msg("Locating free area");
   
   free_points = read_points(free_points_file);
 
-  string headings_file = "conf/environments/" + param->environment() + "/headings.txt";
+  string headings_file = "conf/environments/" + environment.env_dir + "/headings.txt";
   headings = read_vector(headings_file);
 }
 
